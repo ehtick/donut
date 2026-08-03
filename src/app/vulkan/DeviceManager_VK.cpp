@@ -699,7 +699,7 @@ bool DeviceManager_VK::createDevice()
     auto linearSweptSpheresFeatures = vk::PhysicalDeviceRayTracingLinearSweptSpheresFeaturesNV()
         .setSpheres(true)
         .setLinearSweptSpheres(true);
-    
+
     pNext = nullptr;
     APPEND_EXTENSION(true, vulkan13features)
     APPEND_EXTENSION(accelStructSupported, accelStructFeatures)
@@ -745,6 +745,7 @@ bool DeviceManager_VK::createDevice()
     // Add a Vulkan 1.1 structure with default settings to make it easier for apps to modify them
     auto vulkan11features = vk::PhysicalDeviceVulkan11Features()
         .setStorageBuffer16BitAccess(true)
+        .setVariablePointersStorageBuffer(true)
         .setPNext(pNext);
 
     auto vulkan12features = vk::PhysicalDeviceVulkan12Features()
@@ -752,11 +753,18 @@ bool DeviceManager_VK::createDevice()
         .setRuntimeDescriptorArray(true)
         .setDescriptorBindingPartiallyBound(true)
         .setDescriptorBindingVariableDescriptorCount(true)
+        .setDescriptorBindingSampledImageUpdateAfterBind(true)
+        .setDescriptorBindingStorageImageUpdateAfterBind(true)
+        .setDescriptorBindingStorageBufferUpdateAfterBind(true)
+        .setDescriptorBindingUniformTexelBufferUpdateAfterBind(true)
+        .setDescriptorBindingStorageTexelBufferUpdateAfterBind(true)
+        .setDescriptorBindingUpdateUnusedWhilePending(true)
         .setTimelineSemaphore(true)
         .setShaderSampledImageArrayNonUniformIndexing(true)
         .setBufferDeviceAddress(bufferDeviceAddressFeatures.bufferDeviceAddress)
         .setShaderSubgroupExtendedTypes(true)
         .setScalarBlockLayout(true)
+        .setShaderBufferInt64Atomics(true)
         .setPNext(&vulkan11features);
 
     auto extVec = stringSetToVector(enabledExtensions.device);
