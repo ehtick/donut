@@ -381,6 +381,10 @@ namespace donut::app
         [[nodiscard]] GLFWwindow* GetWindow() const { return m_Window; }
         [[nodiscard]] uint32_t GetFrameIndex() const { return m_FrameIndex; }
 
+        // Enters fullscreen on `targetMonitor`, or leaves it for the pre-fullscreen
+        // state when null. No-op if the window is already in the requested state.
+        void SetFullscreen(GLFWmonitor* targetMonitor);
+
         virtual nvrhi::ITexture* GetCurrentBackBuffer() = 0;
         virtual nvrhi::ITexture* GetBackBuffer(uint32_t index) = 0;
         virtual uint32_t GetCurrentBackBufferIndex() = 0;
@@ -470,6 +474,10 @@ namespace donut::app
         virtual bool MouseButtonUpdate(int button, int action, int mods) { return false; }
         virtual bool JoystickButtonUpdate(int button, bool pressed) { return false; }
         virtual bool JoystickAxisUpdate(int axis, float value) { return false; }
+
+        // Unlike BackBufferResized this fires even when the size is unchanged, so
+        // it is the reliable hook for tracking which monitor a window moved to.
+        virtual void WindowPosUpdate(int xpos, int ypos) { }
 
         [[nodiscard]] DeviceManager* GetDeviceManager() const { return m_DeviceManager; }
         [[nodiscard]] nvrhi::IDevice* GetDevice() const { return m_DeviceManager->GetDevice(); }
