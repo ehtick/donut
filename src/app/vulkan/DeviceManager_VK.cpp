@@ -291,6 +291,58 @@ void DeviceManager_VK::installDebugCallback()
     (void)res;
 }
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugUtilsCallback(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+    vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+    const vk::DebugUtilsMessengerCallbackDataEXT* callbackData,
+    void* userData)
+{
+    (void)messageTypes;
+    (void)userData;
+
+    const char* idName = (callbackData && callbackData->pMessageIdName)
+                       ? callbackData->pMessageIdName : "";
+    const char* message = (callbackData && callbackData->pMessage)
+                        ? callbackData->pMessage : "";
+
+    if (severity == vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
+        donut::log::error("[Vulkan debug-utils: %s] %s", idName, message);
+    else
+        donut::log::warning("[Vulkan debug-utils: %s] %s", idName, message);
+
+    return VK_FALSE;
+}
+
+void DeviceManager_VK::installDebugUtilsMessenger()
+{
+    // RT validation reports only through debug-utils; the legacy debug-report
+    // callback in installDebugCallback never receives those messages.
+    if (enabledExtensions.instance.find(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+        == enabledExtensions.instance.end())
+    {
+        log::warning("VK_EXT_debug_utils is not enabled on the instance - "
+                     "ray-tracing-validation messages cannot be delivered.");
+        return;
+    }
+
+    auto info = vk::DebugUtilsMessengerCreateInfoEXT()
+        .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+                            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
+        .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
+        .setPfnUserCallback(vulkanDebugUtilsCallback)
+        .setPUserData(this);
+
+    const vk::Result res = m_VulkanInstance.createDebugUtilsMessengerEXT(&info, nullptr, &m_DebugUtilsMessenger);
+    if (res != vk::Result::eSuccess)
+    {
+        log::warning("Failed to create a debug-utils messenger, error code = %s - "
+                     "ray-tracing-validation messages cannot be delivered.",
+                     nvrhi::vulkan::resultToString(VkResult(res)));
+    }
+}
+
 bool DeviceManager_VK::pickPhysicalDevice()
 {
     VkFormat requestedFormat = nvrhi::vulkan::convertFormat(m_DeviceParams.swapChainFormat);
@@ -567,6 +619,12 @@ bool DeviceManager_VK::createDevice()
             enabledExtensions.device.insert(name);
         }
 
+        // Gated by the NV_ALLOW_RAYTRACING_VALIDATION opt-in set before ICD load.
+        if (m_DeviceParams.enableRayTracingValidation && name == VK_NV_RAY_TRACING_VALIDATION_EXTENSION_NAME)
+        {
+            enabledExtensions.device.insert(name);
+        }
+
         if (m_DeviceParams.enableRayTracingExtensions && m_RayTracingExtensions.find(name) != m_RayTracingExtensions.end())
         {
             enabledExtensions.device.insert(name);
@@ -593,6 +651,7 @@ bool DeviceManager_VK::createDevice()
     bool linearSweptSpheresSupported = false;
     bool meshShaderSupported = false;
     bool rayTracingPositionFetchSupported = false;
+    bool rayTracingValidationSupported = false;
 
     log::message(m_DeviceParams.infoLogSeverity, "Enabled Vulkan device extensions:");
     for (const auto& ext : enabledExtensions.device)
@@ -625,6 +684,8 @@ bool DeviceManager_VK::createDevice()
             meshShaderSupported = true;
         else if (ext == VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME)
             rayTracingPositionFetchSupported = true;
+        else if (ext == VK_NV_RAY_TRACING_VALIDATION_EXTENSION_NAME)
+            rayTracingValidationSupported = true;
     }
 
 #define APPEND_EXTENSION(condition, desc) if (condition) { (desc).pNext = pNext; pNext = &(desc); }  // NOLINT(cppcoreguidelines-macro-usage)
@@ -704,6 +765,8 @@ bool DeviceManager_VK::createDevice()
         .setLinearSweptSpheres(true);
     auto rayTracingPositionFetchFeatures = vk::PhysicalDeviceRayTracingPositionFetchFeaturesKHR()
         .setRayTracingPositionFetch(true);
+    auto rayTracingValidationFeatures = vk::PhysicalDeviceRayTracingValidationFeaturesNV()
+        .setRayTracingValidation(true);
 
     pNext = nullptr;
     APPEND_EXTENSION(true, vulkan13features)
@@ -716,8 +779,23 @@ bool DeviceManager_VK::createDevice()
     APPEND_EXTENSION(clusterAccelerationStructureSupported, clusterAccelerationStructureFeatures)
     APPEND_EXTENSION(mutableDescriptorTypeSupported, mutableDescriptorTypeFeatures)
     APPEND_EXTENSION(linearSweptSpheresSupported, linearSweptSpheresFeatures)
+    APPEND_EXTENSION(rayTracingValidationSupported, rayTracingValidationFeatures)
     APPEND_EXTENSION(meshShaderSupported, meshShaderFeatures)
     APPEND_EXTENSION(rayTracingPositionFetchSupported, rayTracingPositionFetchFeatures)
+
+    // Too easy to end up silently inert, so report which way it went.
+    if (m_DeviceParams.enableRayTracingValidation)
+    {
+        if (rayTracingValidationSupported)
+            log::info("VK_NV_ray_tracing_validation: ENABLED (driver-level ray tracing validation active; "
+                      "messages delivered via VK_EXT_debug_utils)");
+        else
+            log::warning("VK_NV_ray_tracing_validation requested but NOT exposed by the driver - "
+                         "ray tracing validation is INERT this run. NV_ALLOW_RAYTRACING_VALIDATION=1 "
+                         "was set before instance creation; if this persists, the driver may not "
+                         "support the extension (requires r550+).");
+    }
+
 
     // These mesh shader features require other device features to be enabled:
     // - VkPhysicalDeviceMultiviewFeaturesKHR::multiview
@@ -937,6 +1015,22 @@ bool DeviceManager_VK::createSwapChain()
 
 bool DeviceManager_VK::CreateInstanceInternal()
 {
+    if (m_DeviceParams.enableRayTracingValidation)
+    {
+        // The driver only exposes the extension if this is set before the ICD
+        // loads, so it must precede the Streamline interposer below.
+#ifdef _WIN32
+        const int envResult = _putenv_s("NV_ALLOW_RAYTRACING_VALIDATION", "1");
+#else
+        const int envResult = setenv("NV_ALLOW_RAYTRACING_VALIDATION", "1", 1);
+#endif
+        if (envResult != 0)
+            log::warning("Failed to set NV_ALLOW_RAYTRACING_VALIDATION - ray tracing validation will be inert.");
+
+        // Needed for the RT-validation messenger.
+        optionalExtensions.instance.insert(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
 #if DONUT_WITH_STREAMLINE
     StreamlineIntegration::Get().InitializePreDevice(nvrhi::GraphicsAPI::VULKAN, m_DeviceParams.streamlineAppId, m_DeviceParams.checkStreamlineSignature, m_DeviceParams.enableStreamlineLog);
 #endif
@@ -1019,6 +1113,11 @@ bool DeviceManager_VK::CreateDevice()
     if (m_DeviceParams.enableDebugRuntime)
     {
         installDebugCallback();
+    }
+
+    if (m_DeviceParams.enableRayTracingValidation)
+    {
+        installDebugUtilsMessenger();
     }
 
     // add device extensions requested by the user
@@ -1165,6 +1264,11 @@ void DeviceManager_VK::DestroyDeviceAndSwapChain()
     if (m_DebugReportCallback)
     {
         m_VulkanInstance.destroyDebugReportCallbackEXT(m_DebugReportCallback);
+    }
+
+    if (m_DebugUtilsMessenger)
+    {
+        m_VulkanInstance.destroyDebugUtilsMessengerEXT(m_DebugUtilsMessenger);
     }
 
     if (m_VulkanInstance)

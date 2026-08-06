@@ -160,6 +160,7 @@ protected:
     bool createInstance();
     bool createWindowSurface();
     void installDebugCallback();
+    void installDebugUtilsMessenger();
     bool pickPhysicalDevice();
     bool findQueueFamilies(vk::PhysicalDevice physicalDevice);
     bool createDevice();
@@ -224,6 +225,7 @@ protected:
 
     vk::Instance m_VulkanInstance;
     vk::DebugReportCallbackEXT m_DebugReportCallback;
+    vk::DebugUtilsMessengerEXT m_DebugUtilsMessenger;
 
     vk::PhysicalDevice m_VulkanPhysicalDevice;
     int m_GraphicsQueueFamily = -1;
