@@ -592,6 +592,7 @@ bool DeviceManager_VK::createDevice()
     bool mutableDescriptorTypeSupported = false;
     bool linearSweptSpheresSupported = false;
     bool meshShaderSupported = false;
+    bool rayTracingPositionFetchSupported = false;
 
     log::message(m_DeviceParams.infoLogSeverity, "Enabled Vulkan device extensions:");
     for (const auto& ext : enabledExtensions.device)
@@ -622,6 +623,8 @@ bool DeviceManager_VK::createDevice()
             linearSweptSpheresSupported = true;
         else if (ext == VK_EXT_MESH_SHADER_EXTENSION_NAME)
             meshShaderSupported = true;
+        else if (ext == VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME)
+            rayTracingPositionFetchSupported = true;
     }
 
 #define APPEND_EXTENSION(condition, desc) if (condition) { (desc).pNext = pNext; pNext = &(desc); }  // NOLINT(cppcoreguidelines-macro-usage)
@@ -699,6 +702,8 @@ bool DeviceManager_VK::createDevice()
     auto linearSweptSpheresFeatures = vk::PhysicalDeviceRayTracingLinearSweptSpheresFeaturesNV()
         .setSpheres(true)
         .setLinearSweptSpheres(true);
+    auto rayTracingPositionFetchFeatures = vk::PhysicalDeviceRayTracingPositionFetchFeaturesKHR()
+        .setRayTracingPositionFetch(true);
 
     pNext = nullptr;
     APPEND_EXTENSION(true, vulkan13features)
@@ -712,7 +717,8 @@ bool DeviceManager_VK::createDevice()
     APPEND_EXTENSION(mutableDescriptorTypeSupported, mutableDescriptorTypeFeatures)
     APPEND_EXTENSION(linearSweptSpheresSupported, linearSweptSpheresFeatures)
     APPEND_EXTENSION(meshShaderSupported, meshShaderFeatures)
-    
+    APPEND_EXTENSION(rayTracingPositionFetchSupported, rayTracingPositionFetchFeatures)
+
     // These mesh shader features require other device features to be enabled:
     // - VkPhysicalDeviceMultiviewFeaturesKHR::multiview
     // - VkPhysicalDeviceFragmentShadingRateFeaturesKHR::primitiveFragmentShadingRate
