@@ -508,8 +508,13 @@ void gs_main(point float4 input[1] : SV_Position, uint primId : SV_PrimitiveID, 
     uint widgetId = widget_axis_x + axis;
     if (is_widget_visible(widgetId))
     {
+#ifdef TARGET_D3D11
+        // fxc rejects a dynamic index as an l-value on a vector (X3500).
+        float3 offset = float3(axis == 0, axis == 1, axis == 2);
+#else
         float3 offset = float3(0.0, 0.0, 0.0);
         offset[axis] = 1.0;
+#endif
         emit_cube_face(stream, face, offset * g_Manip.scale.xyz, manip_scale, true, widgetId); // 4 verts
     }
 
