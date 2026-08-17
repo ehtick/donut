@@ -408,7 +408,9 @@ bool DeviceManager_VK::pickPhysicalDevice()
 
         vk::PhysicalDeviceFeatures2 deviceFeatures2{};
         vk::PhysicalDeviceVulkan13Features vulkan13Features{};
+        vk::PhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
         deviceFeatures2.pNext = &vulkan13Features;
+        vulkan13Features.pNext = &descriptorIndexingFeatures;
 
         dev.getFeatures2(&deviceFeatures2);
         if (!deviceFeatures2.features.samplerAnisotropy)
@@ -430,6 +432,23 @@ bool DeviceManager_VK::pickPhysicalDevice()
         if (!vulkan13Features.synchronization2)
         {
             errorStream << std::endl << "  - does not support synchronization2";
+            deviceIsGood = false;
+        }
+        // Bindless descriptor tables need update-after-bind for every type they can hold.
+        if (!(descriptorIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind
+                && descriptorIndexingFeatures.descriptorBindingStorageImageUpdateAfterBind
+                && descriptorIndexingFeatures.descriptorBindingStorageBufferUpdateAfterBind
+                && descriptorIndexingFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind
+                && descriptorIndexingFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind))
+        {
+            errorStream << std::endl << "  - does not support update-after-bind descriptor indexing";
+            deviceIsGood = false;
+        }
+        // The mutable heap can alias uniform buffers, so it needs this too.
+        if ((m_DeviceParams.enableCbvDescriptorStreaming || m_DeviceParams.enableHeapDirectlyIndexed) &&
+            !descriptorIndexingFeatures.descriptorBindingUniformBufferUpdateAfterBind)
+        {
+            errorStream << std::endl << "  - does not support descriptorBindingUniformBufferUpdateAfterBind";
             deviceIsGood = false;
         }
 
@@ -842,6 +861,8 @@ bool DeviceManager_VK::createDevice()
         .setDescriptorBindingStorageBufferUpdateAfterBind(true)
         .setDescriptorBindingUniformTexelBufferUpdateAfterBind(true)
         .setDescriptorBindingStorageTexelBufferUpdateAfterBind(true)
+        .setDescriptorBindingUniformBufferUpdateAfterBind(m_DeviceParams.enableCbvDescriptorStreaming
+            || m_DeviceParams.enableHeapDirectlyIndexed)
         .setDescriptorBindingUpdateUnusedWhilePending(true)
         .setTimelineSemaphore(true)
         .setShaderSampledImageArrayNonUniformIndexing(true)
@@ -883,6 +904,7 @@ bool DeviceManager_VK::createDevice()
 
     // remember the bufferDeviceAddress feature enablement
     m_BufferDeviceAddressSupported = vulkan12features.bufferDeviceAddress;
+    m_DescriptorBindingUniformBufferUpdateAfterBind = vulkan12features.descriptorBindingUniformBufferUpdateAfterBind;
 
     log::message(m_DeviceParams.infoLogSeverity, "Created Vulkan device: %s", m_RendererString.c_str());
 
@@ -1130,6 +1152,10 @@ bool DeviceManager_VK::CreateDevice()
         optionalExtensions.device.insert(name);
     }
 
+    // Promote to required so an unsuitable GPU is rejected during selection, not after
+    if (m_DeviceParams.enableHeapDirectlyIndexed)
+        enabledExtensions.device.insert(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
+
     if (!m_DeviceParams.headlessDevice)
     {
         // Need to adjust the swap chain format before creating the device because it affects physical device selection
@@ -1170,6 +1196,7 @@ bool DeviceManager_VK::CreateDevice()
     deviceDesc.deviceExtensions = vecDeviceExt.data();
     deviceDesc.numDeviceExtensions = vecDeviceExt.size();
     deviceDesc.bufferDeviceAddressSupported = m_BufferDeviceAddressSupported;
+    deviceDesc.descriptorBindingUniformBufferUpdateAfterBind = m_DescriptorBindingUniformBufferUpdateAfterBind;
 #if DONUT_WITH_AFTERMATH
     deviceDesc.aftermathEnabled = m_DeviceParams.enableAftermath;
 #endif

@@ -265,6 +265,7 @@ protected:
     std::vector<nvrhi::EventQueryHandle> m_QueryPool;
 
     bool m_BufferDeviceAddressSupported = false;
+    bool m_DescriptorBindingUniformBufferUpdateAfterBind = false;
 
 #if VK_HEADER_VERSION >= 301
     typedef vk::detail::DynamicLoader VulkanDynamicLoader;

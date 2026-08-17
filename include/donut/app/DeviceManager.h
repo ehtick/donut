@@ -105,7 +105,13 @@ namespace donut::app
         bool enableAftermath = false;
 #endif
         bool logBufferLifetime = false;
-        bool enableHeapDirectlyIndexed = false; // Allows ResourceDescriptorHeap on DX12
+        // Allows ResourceDescriptorHeap on DX12. On Vulkan this needs VK_EXT_mutable_descriptor_type
+        // and implies enableCbvDescriptorStreaming, because the heap can alias uniform buffers.
+        bool enableHeapDirectlyIndexed = false;
+        // Allows writing ConstantBuffer entries of a bindless layout while in-flight command buffers
+        // bind it. Vulkan only; needs descriptorBindingUniformBufferUpdateAfterBind, which is Turing
+        // (GTX 1660) and newer, so requesting it narrows the set of usable GPUs.
+        bool enableCbvDescriptorStreaming = false;
 
         // Enables per-monitor DPI scale support.
         //
