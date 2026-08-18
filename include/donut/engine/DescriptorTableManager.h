@@ -74,6 +74,7 @@ namespace donut::engine
                 nvrhi::hash_combine(hash, item.type);
                 nvrhi::hash_combine(hash, item.format);
                 nvrhi::hash_combine(hash, item.dimension);
+                nvrhi::hash_combine(hash, item.overrideComponentMapping);
                 nvrhi::hash_combine(hash, item.rawData[0]);
                 nvrhi::hash_combine(hash, item.rawData[1]);
                 return hash;
@@ -89,6 +90,7 @@ namespace donut::engine
                     && a.type == b.type
                     && a.format == b.format
                     && a.dimension == b.dimension
+                    && a.overrideComponentMapping == b.overrideComponentMapping
                     && a.subresources == b.subresources;
             }
         };
