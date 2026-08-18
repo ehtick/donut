@@ -819,6 +819,11 @@ void DeviceManager::WindowContentScaleCallback(float scaleX, float scaleY)
 
 void DeviceManager::WindowPosCallback(int x, int y)
 {
+    for (auto it : m_vRenderPasses)
+    {
+        it->WindowPosUpdate(x, y);
+    }
+
     if (m_EnableRenderDuringWindowMovement && m_SwapChainFramebuffers.size() > 0)
     {
         if (m_callbacks.beforeFrame) m_callbacks.beforeFrame(*this, m_FrameIndex);
@@ -850,31 +855,49 @@ GLFWmonitor* DeviceManager::GetCurrentMonitor() const
     return glfwGetPrimaryMonitor();
 }
 
-void DeviceManager::ToggleFullscreen()
+void DeviceManager::SetFullscreen(GLFWmonitor* targetMonitor)
 {
-    if (glfwGetWindowMonitor(m_Window) != nullptr)
+    GLFWmonitor* const currentMonitor = glfwGetWindowMonitor(m_Window);
+
+    // Exiting fullscreen
+    if (!targetMonitor)
     {
-        // Fullscreen → windowed: restore previous windowed state.
-        glfwSetWindowMonitor(m_Window, nullptr, m_PrevWindowX, m_PrevWindowY, m_PrevWindowWidth, m_PrevWindowHeight, 0);
+        if (!currentMonitor)
+            return;
+
+        // WS_MAXIMIZE and the OS restore rect survive the round trip untouched, so a
+        // maximized window comes back maximized without being tracked here.
+        glfwSetWindowMonitor(m_Window, nullptr, m_PrevWindowX, m_PrevWindowY,
+            m_PrevWindowWidth, m_PrevWindowHeight, 0);
+
+        return;
     }
-    else
+
+    // Entering fullscreen / switching monitors
+    if (currentMonitor == targetMonitor)
+        return;
+
+    // Only snapshot on the way in, so moving between monitors keeps the geometry
+    // the window had before any of this started.
+    if (!currentMonitor)
     {
-        // Windowed → fullscreen. Save current windowed state for restore.
         glfwGetWindowPos(m_Window, &m_PrevWindowX, &m_PrevWindowY);
         glfwGetWindowSize(m_Window, &m_PrevWindowWidth, &m_PrevWindowHeight);
-
-        GLFWmonitor* monitor = GetCurrentMonitor();
-        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-        int monX, monY;
-        glfwGetMonitorPos(monitor, &monX, &monY);
-
-        // glfwSetWindowMonitor fires the framebuffer size callback so UpdateWindowSize
-        // picks up the monitor-native resolution and calls ResizeSwapChain.
-        glfwSetWindowMonitor(m_Window, monitor, monX, monY, mode->width, mode->height, mode->refreshRate);
-
-        if (!m_DeviceParams.fullscreenAlwaysOnTop)
-            ClearFullscreenTopmost(m_Window);
     }
+
+    const GLFWvidmode* mode = glfwGetVideoMode(targetMonitor);
+    int monX, monY;
+    glfwGetMonitorPos(targetMonitor, &monX, &monY);
+
+    glfwSetWindowMonitor(m_Window, targetMonitor, monX, monY, mode->width, mode->height, mode->refreshRate);
+
+    if (!m_DeviceParams.fullscreenAlwaysOnTop)
+        ClearFullscreenTopmost(m_Window);
+}
+
+void DeviceManager::ToggleFullscreen()
+{
+    SetFullscreen(glfwGetWindowMonitor(m_Window) ? nullptr : GetCurrentMonitor());
 }
 
 void DeviceManager::KeyboardUpdate(int key, int scancode, int action, int mods)
