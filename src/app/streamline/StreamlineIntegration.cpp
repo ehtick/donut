@@ -1244,15 +1244,8 @@ static void GetSLResource(
 #if DONUT_WITH_DX12
     case nvrhi::GraphicsAPI::D3D12:
     {
-        // Streamline issues legacy ResourceBarrier calls internally; with
-        // enhanced barriers D3D12 only permits those on a resource in the
-        // COMMON layout.  Transition to COMMON and tell Streamline so
-        // (Streamline restores it on return), which works identically on
-        // both barrier modes.  The commit is essential — Streamline records
-        // onto the native command list, which never sees nvrhi's
-        // pending-barrier queue; an uncommitted setTextureState desyncs
-        // nvrhi's state tracking from the resource's real state and produces
-        // "Before state does not match" ResourceBarrier errors.
+        // Streamline issues legacy ResourceBarriers on its own command list, which
+        // enhanced barriers only permit on a COMMON-layout resource.
         commandList->setTextureState(inputTex, nvrhi::AllSubresources, nvrhi::ResourceStates::Common);
         commandList->commitBarriers();
         slResource = sl::Resource{ sl::ResourceType::eTex2d, inputTex->getNativeObject(nvrhi::ObjectTypes::D3D12_Resource), nullptr, nullptr, D3D12_RESOURCE_STATE_COMMON };
@@ -1267,10 +1260,15 @@ static void GetSLResource(
         auto const& desc = inputTex->getDesc();
         auto const vkDesc = static_cast<vk::ImageCreateInfo *>(inputTex->getNativeObject(nvrhi::ObjectTypes::VK_ImageCreateInfo));
 
+        // Streamline records barriers on its own command buffer, so commit a known
+        // layout rather than reporting desc.initialState; Common maps to eUndefined.
+        commandList->setTextureState(inputTex, nvrhi::AllSubresources, nvrhi::ResourceStates::UnorderedAccess);
+        commandList->commitBarriers();
+
         slResource = sl::Resource{ sl::ResourceType::eTex2d, inputTex->getNativeObject(nvrhi::ObjectTypes::VK_Image),
             inputTex->getNativeObject(nvrhi::ObjectTypes::VK_DeviceMemory),
             inputTex->getNativeView(nvrhi::ObjectTypes::VK_ImageView, desc.format, subresources),
-            static_cast<uint32_t>(toVkImageLayout(desc.initialState)) };
+            static_cast<uint32_t>(toVkImageLayout(nvrhi::ResourceStates::UnorderedAccess)) };
         slResource.width = desc.width;
         slResource.height = desc.height;
         slResource.nativeFormat = static_cast<uint32_t>(nvrhi::vulkan::convertFormat(desc.format));
