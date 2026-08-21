@@ -311,8 +311,11 @@ void emit_2_tris_strip(inout ManipulatorStream stream, float3 verts[4], uint wid
 
 void emit_line(inout ManipulatorStream stream, uint axis, float manip_scale, bool apply_transform, uint widgetId)
 {
-    float3 a = float3(0.0, 0.0, 0.0); a[axis] = 0.2;
-    float3 b = float3(0.0, 0.0, 0.0); b[axis] = 1.0;
+    float3 a = float3(0.2, 0.0, 0.0);
+    float3 b = float3(1.0, 0.0, 0.0);
+    switch_axis(axis, a);
+    switch_axis(axis, b);
+    
     if (apply_transform)
     {
         b *= g_Manip.scale.xyz;
