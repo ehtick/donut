@@ -388,6 +388,7 @@ namespace donut::engine
 
         out.supported    = true;
         out.vkFormat      = parsed.vkFormat;
+        out.format        = VkFormatToNvrhi(parsed.vkFormat);
         out.width         = parsed.width;
         out.height        = parsed.height;
         out.levelCount    = parsed.levelCount;

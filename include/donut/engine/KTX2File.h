@@ -54,7 +54,8 @@ namespace donut::engine
     struct KTX2HeaderInfo
     {
         bool     supported = false; // 2D BCn, none/Zstandard supercompression
-        uint32_t vkFormat  = 0;
+        uint32_t vkFormat  = 0;     // the raw header field
+        nvrhi::Format format = nvrhi::Format::UNKNOWN; // vkFormat mapped, as DDSHeaderInfo reports it
         uint32_t width     = 0;     // mip-0 dimensions
         uint32_t height    = 0;
         uint32_t levelCount = 0;
