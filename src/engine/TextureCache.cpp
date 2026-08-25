@@ -417,7 +417,7 @@ void TextureCache::FinalizeTexture(
         : texture->mipLevels;
     textureDesc.debugName = texture->path;
     textureDesc.isRenderTarget = texture->isRenderTarget;
-    textureDesc.defaultComponentMapping = texture->loadOptions.defaultComponentMapping;
+    textureDesc.defaultComponentMapping = texture->ResolveComponentMapping();
     texture->texture = m_Device->createTexture(textureDesc);
 
     commandList->beginTrackingTextureState(texture->texture, nvrhi::AllSubresources, nvrhi::ResourceStates::Common);

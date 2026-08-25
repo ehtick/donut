@@ -22,7 +22,10 @@
 
 #pragma once
 
+#include <nvrhi/nvrhi.h>
+
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 // The definitions live in KTX2File.cpp, which compiles to nothing when the
@@ -57,6 +60,8 @@ namespace donut::engine
         uint32_t levelCount = 0;
         uint32_t bytesPerBlock = 0;
         uint32_t supercompressionScheme = 0;
+        // The file's KTXswizzle metadata, if it carries one.
+        std::optional<nvrhi::ComponentMapping> componentMapping;
         std::vector<KTX2LevelInfo> levels; // levels[0] = mip 0 (largest)
     };
 
