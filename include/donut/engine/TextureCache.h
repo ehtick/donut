@@ -65,7 +65,7 @@ namespace donut::engine
         size_t operator()(const TextureCacheKey& key) const
         {
             size_t hash = std::hash<std::string>()(key.path);
-            hash ^= size_t(key.options.defaultComponentMapping.pack()) << 1;
+            hash ^= size_t(nvrhi::packComponentMapping(key.options.overrideComponentMapping)) << 1;
             hash ^= size_t(key.options.sRGBMode) << 17;
             hash ^= size_t(key.options.baseMip) << 20;
             return hash;
@@ -85,8 +85,19 @@ namespace donut::engine
         nvrhi::TextureDimension dimension = nvrhi::TextureDimension::Unknown;
         bool isRenderTarget = false;
 
+        // What the file itself declares (KTX2 KTXswizzle); containers that cannot
+        // carry a mapping leave it unset.
+        std::optional<nvrhi::ComponentMapping> fileComponentMapping;
+
         // ArraySlice -> MipLevel -> TextureSubresourceData
         std::vector<std::vector<TextureSubresourceData>> dataLayout;
+
+        // The caller's override if it set one, else the file's, else identity.
+        nvrhi::ComponentMapping ResolveComponentMapping() const
+        {
+            return loadOptions.overrideComponentMapping.value_or(
+                fileComponentMapping.value_or(nvrhi::ComponentMapping{}));
+        }
     };
 
     class TextureCache

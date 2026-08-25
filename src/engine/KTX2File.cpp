@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <optional>
 
 using namespace donut::vfs;
 
@@ -181,6 +182,70 @@ namespace donut::engine
             }
         }
 
+        bool SwizzleCharToComponent(char c, nvrhi::ComponentSwizzle& out)
+        {
+            switch (c)
+            {
+            case 'r': out = nvrhi::ComponentSwizzle::R;    return true;
+            case 'g': out = nvrhi::ComponentSwizzle::G;    return true;
+            case 'b': out = nvrhi::ComponentSwizzle::B;    return true;
+            case 'a': out = nvrhi::ComponentSwizzle::A;    return true;
+            case '0': out = nvrhi::ComponentSwizzle::Zero; return true;
+            case '1': out = nvrhi::ComponentSwizzle::One;  return true;
+            default:  return false;
+            }
+        }
+
+        // Find KTXswizzle in the key/value data (KTX2 spec §3.11, §5.4) and turn it into
+        // a component mapping.  `mappedSize` bounds the readable region: the KVD block can
+        // sit past the end of a partially mapped file, which just means no mapping.
+        std::optional<nvrhi::ComponentMapping> ParseKVDSwizzle(
+            const char* fileBytes, size_t mappedSize, uint32_t kvdByteOffset, uint32_t kvdByteLength)
+        {
+            // Subtract rather than add, so a crafted offset cannot wrap past the check.
+            if (kvdByteLength == 0 || kvdByteOffset > mappedSize ||
+                kvdByteLength > mappedSize - kvdByteOffset)
+                return std::nullopt;
+
+            static const char c_Key[] = "KTXswizzle";
+            constexpr size_t c_KeyLen = sizeof(c_Key) - 1;
+
+            size_t p = kvdByteOffset;
+            const size_t end = size_t(kvdByteOffset) + kvdByteLength;
+            while (p + 4 <= end)
+            {
+                uint32_t kvLength = 0;
+                std::memcpy(&kvLength, fileBytes + p, sizeof(kvLength));
+                p += 4;
+                if (kvLength > end - p)
+                    return std::nullopt; // malformed: the entry runs past the block
+
+                const char* kv = fileBytes + p;
+                size_t keyLen = 0;
+                while (keyLen < kvLength && kv[keyLen] != '\0')
+                    ++keyLen;
+
+                // Value is 4 characters plus its own NUL.
+                if (keyLen == c_KeyLen && keyLen + 1 + 5 <= kvLength &&
+                    std::memcmp(kv, c_Key, c_KeyLen) == 0)
+                {
+                    const char* value = kv + keyLen + 1;
+                    nvrhi::ComponentMapping mapping;
+                    nvrhi::ComponentSwizzle* dst[4] = { &mapping.r, &mapping.g, &mapping.b, &mapping.a };
+                    for (int i = 0; i < 4; ++i)
+                        if (!SwizzleCharToComponent(value[i], *dst[i]))
+                            return std::nullopt;
+                    return mapping;
+                }
+
+                p += kvLength;
+                p += (4 - (kvLength & 3)) & 3; // valuePadding to the next 4-byte boundary
+                if (p > end)
+                    break;
+            }
+            return std::nullopt;
+        }
+
         // Sentinel for ParseKTX2's fileSize: the body is not mapped, so skip its
         // bounds check.
         constexpr uint64_t c_UnknownFileSize = ~0ull;
@@ -204,6 +269,7 @@ namespace donut::engine
                 size_t   sizeBytes  = 0; // block-packed, == uncompressedByteLength
             };
             std::vector<Level> levels;
+            std::optional<nvrhi::ComponentMapping> componentMapping; // KTXswizzle, if present
         };
 
         // Validate + parse the header and level index of a 2D BCn KTX2 (no pixel
@@ -269,6 +335,8 @@ namespace donut::engine
             out.height        = height;
             out.levelCount    = numLevels;
             out.bytesPerBlock = bytesPerBlock;
+            out.componentMapping = ParseKVDSwizzle(fileBytes, headerRegionSize,
+                                                   header.kvdByteOffset, header.kvdByteLength);
             out.levels.resize(numLevels);
 
             for (uint32_t mip = 0; mip < numLevels; ++mip)
@@ -320,11 +388,13 @@ namespace donut::engine
 
         out.supported    = true;
         out.vkFormat      = parsed.vkFormat;
+        out.format        = VkFormatToNvrhi(parsed.vkFormat);
         out.width         = parsed.width;
         out.height        = parsed.height;
         out.levelCount    = parsed.levelCount;
         out.bytesPerBlock = parsed.bytesPerBlock;
         out.supercompressionScheme = parsed.scheme;
+        out.componentMapping = parsed.componentMapping;
         out.levels.resize(parsed.levelCount);
         for (uint32_t mip = 0; mip < parsed.levelCount; ++mip)
         {
@@ -416,6 +486,7 @@ namespace donut::engine
         textureInfo.mipLevels = numKept;
         textureInfo.dimension = nvrhi::TextureDimension::Texture2D;
         textureInfo.originalBitsPerPixel = (parsed.bytesPerBlock * 8) / 16; // BCn bits/texel
+        textureInfo.fileComponentMapping = parsed.componentMapping;
 
         textureInfo.dataLayout.resize(1);
         std::vector<TextureSubresourceData>& slice = textureInfo.dataLayout[0];

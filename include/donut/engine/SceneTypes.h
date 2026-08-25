@@ -140,8 +140,9 @@ namespace donut::engine
     {
         SRGBMode sRGBMode = SRGBMode::FromFile;
 
-        // Applied to every view of the texture; an SRV binding can still override it.
-        nvrhi::ComponentMapping defaultComponentMapping;
+        // Overrides whatever mapping the file declares (KTX2 KTXswizzle); unset means
+        // use the file's, or identity when it declares none or cannot carry one.
+        std::optional<nvrhi::ComponentMapping> overrideComponentMapping;
 
         // Drops this many of the highest-resolution mips at load time, letting a
         // budget pre-pass trade detail for memory. Clamped to the available levels.
@@ -150,7 +151,7 @@ namespace donut::engine
         bool operator==(const TextureLoadOptions& o) const
         {
             return sRGBMode == o.sRGBMode
-                && defaultComponentMapping == o.defaultComponentMapping
+                && overrideComponentMapping == o.overrideComponentMapping
                 && baseMip == o.baseMip;
         }
         bool operator!=(const TextureLoadOptions& o) const { return !(*this == o); }

@@ -807,7 +807,7 @@ namespace donut::engine
         desc.mipLevels = info.mipLevels;
         desc.format = info.format;
         desc.debugName = debugName;
-        desc.defaultComponentMapping = info.loadOptions.defaultComponentMapping;
+        desc.defaultComponentMapping = info.ResolveComponentMapping();
 
         nvrhi::TextureHandle texture = device->createTexture(desc);
 
