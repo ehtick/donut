@@ -1223,6 +1223,11 @@ GeometryData* Scene::GetGeometryData(const MeshGeometry& geometry) const
     return &m_Resources->geometryData[geometry.globalGeometryIndex];
 }
 
+SceneGeometryMemoryStats Scene::GetGeometryMemoryStats() const
+{
+    return GetSceneGeometryMemoryStats(m_Device, *this);
+}
+
 
 void Scene::UpdateInstance(const std::shared_ptr<MeshInstance>& instance)
 {
