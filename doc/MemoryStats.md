@@ -1,18 +1,25 @@
 # Scene geometry memory statistics
 
 `Scene::getGeometryMemoryStats()` returns current vertex/index buffer totals, deduplicating
-shared buffer handles within each category. It keeps descriptor `capacityBytes` separate
-from backing-buffer `allocationBytes`. Check `hasKnownAllocationBytes()` before displaying
-an allocation total: unavailable resources increment `unknownAllocationCount`, not a known zero.
+shared buffer handles within each category. A handle used in both categories counts once
+in each, so adding the categories does not give unique physical memory usage. It keeps
+descriptor `capacityBytes` separate from backing-buffer `allocationBytes`, which sums only
+successful queries. Check `hasKnownAllocationBytes()` before displaying a complete allocation
+total: unavailable resources increment `unknownAllocationCount`, not a known zero.
+`resourceCount` includes both known and unknown non-null buffers. Missing graphs, meshes,
+buffer groups, and buffer handles contribute nothing; an empty category is known zero.
 Re-query after scene resource replacement or removal; the statistics do not retain resources.
+The free function `getSceneGeometryMemoryStats(device, scene)` provides the same aggregation
+with an explicit device; a null device preserves capacity and counts but makes allocation
+sizes unavailable for every counted buffer.
 
-`tryGetResourceAllocationBytes` uses NVRHI's optional `queryResourceMemoryRequirements`.
-D3D11 reports unavailable safely; D3D12 and Vulkan report requirements for exposed backing
-buffers, including acceleration structures and opacity micromaps. These numbers are not
-residency, driver overhead, or unique shared-heap allocation. Pool reservations and aliases
-between categories need attribution by their owner in the consuming application.
+`tryGetResourceAllocationBytes` uses NVRHI's optional `queryResourceMemoryRequirements`
+and leaves `outBytes` unchanged on failure, including a null device or resource.
+See [NVRHI's optional memory queries](../nvrhi/doc/memory-queries.md) for resource/device
+requirements, backend support and exceptions, allocation interpretation, and the native
+`IDevice::queryTopLevelAccelStructPrebuildInfo` API. Application-specific pooled BLAS/OMM
+attribution and statistics UI remain the consuming application's responsibility.
 
-TLAS prebuild queries are exposed directly by
-`IDevice::queryTopLevelAccelStructPrebuildInfo` in NVRHI, rather than Donut. Scratch build
-requests are not resident scratch-pool capacity. Unsupported backends return `false` and
-leave the output unchanged; see NVRHI's `doc/memory-queries.md` for backend support and tests.
+The headless [memory statistics regression](../tests/src/memory_stats.cpp) covers the public
+helper and scene aggregation. Its build conditions and CTest registration are defined in
+[tests/test-engine.cmake](../tests/test-engine.cmake).

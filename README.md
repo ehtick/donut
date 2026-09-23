@@ -72,6 +72,10 @@ Supported glTF extensions:
 
 In addition to glTF, Donut supports its own [JSON-based scene layout files](doc/SceneFile.md). Those files can load multiple glTF models and combine them into a larger scene graph, also add lights, cameras, animations, and apply animations to scene nodes imported from the models using their paths.
 
+### Scene memory statistics
+
+For geometry buffer accounting, see [scene geometry memory statistics](doc/MemoryStats.md).
+
 ### Render passes
 
 For a full list of render passes, refer to the headers in the [include/donut/render](include/donut/render) folder.
