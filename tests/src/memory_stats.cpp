@@ -105,7 +105,8 @@ static void runScenarios(nvrhi::IDevice* device, const char* shaderPath)
     expectEmpty(scene.getGeometryMemoryStats()); // No graph yet.
     auto graph = scene.CreateSceneGraph();
     expectEmpty(scene.getGeometryMemoryStats()); // A new graph has no root.
-    auto root = graph->SetRootNode(std::make_shared<SceneGraphNode>());
+    auto root = std::make_shared<SceneGraphNode>();
+    graph->SetRootNode(root);
     expectEmpty(scene.getGeometryMemoryStats());
 
     auto partial = std::make_shared<MeshInfo>();
