@@ -47,7 +47,8 @@ namespace donut::engine
     };
 
     // Returns backing-buffer memory requirements, not residency or unique heap allocation bytes.
-    // Unsupported queries leave outBytes unchanged; descriptor capacity remains separately available.
+    // Pass the resource's owning device. Unsupported queries leave outBytes unchanged;
+    // descriptor capacity remains separately available.
     bool tryGetResourceAllocationBytes(nvrhi::IDevice* device, nvrhi::IResource* resource, uint64_t& outBytes);
 
     // Deduplicates buffers within each category. Shared heaps and cross-category aliases need

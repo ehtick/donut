@@ -15,8 +15,9 @@ sizes unavailable for every counted buffer.
 
 `tryGetResourceAllocationBytes` uses NVRHI's optional `IResource::queryMemoryRequirements`
 and leaves `outBytes` unchanged on failure, including a null device or resource. The helper's
-existing device parameter and null-device behavior are retained for source compatibility;
-the resource itself dispatches the query to its backend.
+device must be the resource's owning device. It filters D3D11 resources and textures before
+calling NVRHI, whose unsupported queries assert in debug builds; these remain unavailable
+without modifying the output. Supported resources dispatch the query to their backend.
 See [NVRHI's optional memory queries](../nvrhi/doc/memory-queries.md) for
 backend support and exceptions, allocation interpretation, and the native
 `IDevice::queryTopLevelAccelStructPrebuildInfo` API. Application-specific pooled BLAS/OMM

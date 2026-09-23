@@ -92,7 +92,11 @@ static void runScenarios(nvrhi::IDevice* device, const char* shaderPath)
     check(!tryGetResourceAllocationBytes(nullptr, a, sentinel) && sentinel == 987, "null device preserves output");
     check(!tryGetResourceAllocationBytes(device, nullptr, sentinel) && sentinel == 987, "null resource preserves output");
     check(!tryGetResourceAllocationBytes(device, device, sentinel) && sentinel == 987, "unsupported resource preserves output");
-    std::puts("PASS: null and unsupported output preservation");
+    auto texture = device->createTexture(nvrhi::TextureDesc().setWidth(1).setHeight(1).setFormat(nvrhi::Format::RGBA8_UNORM));
+    check(texture != nullptr, "create unsupported texture");
+    check(!tryGetResourceAllocationBytes(device, texture, sentinel) && sentinel == 987,
+        "unsupported texture preserves output without assertion");
+    std::puts("PASS: null, non-memory resource and texture output preservation");
 
     auto fs = std::make_shared<donut::vfs::RootFileSystem>();
     fs->mount("/donut", std::filesystem::path(shaderPath));

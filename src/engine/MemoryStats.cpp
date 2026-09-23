@@ -49,8 +49,15 @@ namespace
 
 bool tryGetResourceAllocationBytes(nvrhi::IDevice* device, nvrhi::IResource* resource, uint64_t& outBytes)
 {
+    if (device == nullptr || resource == nullptr)
+        return false;
+
+    // NVRHI asserts for these unsupported queries in debug builds.
+    if (device->getGraphicsAPI() == nvrhi::GraphicsAPI::D3D11 || dynamic_cast<nvrhi::ITexture*>(resource))
+        return false;
+
     nvrhi::MemoryRequirements requirements;
-    if (device == nullptr || resource == nullptr || !resource->queryMemoryRequirements(requirements))
+    if (!resource->queryMemoryRequirements(requirements))
         return false;
 
     outBytes = requirements.size;
