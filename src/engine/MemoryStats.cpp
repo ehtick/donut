@@ -50,7 +50,7 @@ namespace
 bool tryGetResourceAllocationBytes(nvrhi::IDevice* device, nvrhi::IResource* resource, uint64_t& outBytes)
 {
     nvrhi::MemoryRequirements requirements;
-    if (device == nullptr || !device->queryResourceMemoryRequirements(resource, requirements))
+    if (device == nullptr || resource == nullptr || !resource->queryMemoryRequirements(requirements))
         return false;
 
     outBytes = requirements.size;

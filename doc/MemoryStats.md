@@ -13,10 +13,12 @@ The free function `getSceneGeometryMemoryStats(device, scene)` provides the same
 with an explicit device; a null device preserves capacity and counts but makes allocation
 sizes unavailable for every counted buffer.
 
-`tryGetResourceAllocationBytes` uses NVRHI's optional `queryResourceMemoryRequirements`
-and leaves `outBytes` unchanged on failure, including a null device or resource.
-See [NVRHI's optional memory queries](../nvrhi/doc/memory-queries.md) for resource/device
-requirements, backend support and exceptions, allocation interpretation, and the native
+`tryGetResourceAllocationBytes` uses NVRHI's optional `IResource::queryMemoryRequirements`
+and leaves `outBytes` unchanged on failure, including a null device or resource. The helper's
+existing device parameter and null-device behavior are retained for source compatibility;
+the resource itself dispatches the query to its backend.
+See [NVRHI's optional memory queries](../nvrhi/doc/memory-queries.md) for
+backend support and exceptions, allocation interpretation, and the native
 `IDevice::queryTopLevelAccelStructPrebuildInfo` API. Application-specific pooled BLAS/OMM
 attribution and statistics UI remain the consuming application's responsibility.
 
