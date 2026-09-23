@@ -32,43 +32,25 @@ namespace donut::engine
 
     struct GpuMemoryUsage
     {
-        uint64_t CapacityBytes = 0;
-        uint64_t AllocationBytes = 0;
-        uint32_t ResourceCount = 0;
-        uint32_t UnknownAllocationCount = 0;
+        uint64_t capacityBytes = 0;
+        uint64_t allocationBytes = 0;
+        uint32_t resourceCount = 0;
+        uint32_t unknownAllocationCount = 0;
 
-        [[nodiscard]] bool HasKnownAllocationBytes() const { return UnknownAllocationCount == 0; }
+        [[nodiscard]] bool hasKnownAllocationBytes() const { return unknownAllocationCount == 0; }
     };
 
     struct SceneGeometryMemoryStats
     {
-        GpuMemoryUsage VertexBuffers;
-        GpuMemoryUsage IndexBuffers;
+        GpuMemoryUsage vertexBuffers;
+        GpuMemoryUsage indexBuffers;
     };
 
-    struct TopLevelAccelStructPrebuildStats
-    {
-        uint64_t ResultBytes = 0;
-        uint64_t ScratchBytes = 0;
-        uint64_t UpdateScratchBytes = 0;
-        bool Available = false;
-    };
+    // Returns backing-buffer memory requirements, not residency or unique heap allocation bytes.
+    // Unsupported queries leave outBytes unchanged; descriptor capacity remains separately available.
+    bool tryGetResourceAllocationBytes(nvrhi::IDevice* device, nvrhi::IResource* resource, uint64_t& outBytes);
 
-    // Returns the NVRHI allocation size for buffers when the backend exposes it. Capacity remains
-    // available from IBuffer::getDesc().byteSize even when this returns false.
-    bool TryGetBufferAllocationBytes(nvrhi::IDevice* device, nvrhi::IBuffer* buffer, uint64_t& outBytes);
-    bool TryGetAccelStructAllocationBytes(nvrhi::IDevice* device, nvrhi::rt::IAccelStruct* accelStruct, uint64_t& outBytes);
-
-    // Returns the allocation size for resources that expose a native buffer-like object but do not have
-    // a dedicated NVRHI memory-requirements query, such as opacity micromap arrays on D3D12.
-    bool TryGetNativeResourceAllocationBytes(nvrhi::IDevice* device, nvrhi::IResource* resource, uint64_t& outBytes);
-
-    SceneGeometryMemoryStats GetSceneGeometryMemoryStats(nvrhi::IDevice* device, const Scene& scene);
-
-    // Queries the build requirements for a TLAS with the supplied instance count. Scratch is the exact
-    // build request, not a resident allocation: NVRHI suballocates it from an internal shared pool.
-    TopLevelAccelStructPrebuildStats QueryTopLevelAccelStructPrebuildStats(
-        nvrhi::IDevice* device,
-        const nvrhi::rt::AccelStructDesc& tlasDesc,
-        uint32_t instanceCount);
+    // Deduplicates buffers within each category. Shared heaps and cross-category aliases need
+    // application-specific attribution rather than summing these requirements as physical memory.
+    SceneGeometryMemoryStats getSceneGeometryMemoryStats(nvrhi::IDevice* device, const Scene& scene);
 }

@@ -146,7 +146,7 @@ namespace donut::engine
         [[nodiscard]] nvrhi::IBuffer* GetMaterialBuffer() const { return m_MaterialBuffer; }
         [[nodiscard]] nvrhi::IBuffer* GetGeometryBuffer() const { return m_GeometryBuffer; }
         [[nodiscard]] nvrhi::IBuffer* GetInstanceBuffer() const { return m_InstanceBuffer; }
-        [[nodiscard]] SceneGeometryMemoryStats GetGeometryMemoryStats() const;
+        [[nodiscard]] SceneGeometryMemoryStats getGeometryMemoryStats() const;
 
         // Can return nullptr if not yet created (by Scene::RefreshBuffers)
         GeometryData* GetGeometryData(const MeshGeometry& geometry) const;

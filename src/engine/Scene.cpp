@@ -1223,9 +1223,9 @@ GeometryData* Scene::GetGeometryData(const MeshGeometry& geometry) const
     return &m_Resources->geometryData[geometry.globalGeometryIndex];
 }
 
-SceneGeometryMemoryStats Scene::GetGeometryMemoryStats() const
+SceneGeometryMemoryStats Scene::getGeometryMemoryStats() const
 {
-    return GetSceneGeometryMemoryStats(m_Device, *this);
+    return getSceneGeometryMemoryStats(m_Device, *this);
 }
 
 
