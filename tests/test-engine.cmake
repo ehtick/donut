@@ -38,3 +38,23 @@ foreach(test_src ${donut_engine_tests})
 
 endforeach()
 
+# Native headless coverage, using WARP so no physical GPU or desktop is required.
+if (WIN32 AND DONUT_WITH_DX11 AND DONUT_WITH_DX12)
+    add_executable(test_memory_stats src/memory_stats.cpp)
+    target_link_libraries(test_memory_stats PRIVATE donut_engine dxgi)
+    if (NOT NVRHI_BUILD_SHARED)
+        target_link_libraries(test_memory_stats PRIVATE nvrhi_d3d11 nvrhi_d3d12)
+    endif()
+    target_compile_definitions(test_memory_stats PRIVATE TEST_VALIDATION=$<BOOL:${NVRHI_WITH_VALIDATION}>)
+    add_dependencies(donut_all_tests test_memory_stats)
+    set_property(TARGET test_memory_stats PROPERTY FOLDER "Donut/donut_tests/donut_engine_tests")
+
+    set(memory_stats_shader_dir "${donut_BINARY_DIR}/shaders/compiled_shaders")
+    if (DONUT_SHADERS_OUTPUT_DIR AND NOT DONUT_WITH_STATIC_SHADERS)
+        set(memory_stats_shader_dir "${DONUT_SHADERS_OUTPUT_DIR}")
+    endif()
+    add_test(NAME test_memory_stats_d3d11 COMMAND test_memory_stats d3d11 "${memory_stats_shader_dir}/dxbc")
+    add_test(NAME test_memory_stats_d3d12 COMMAND test_memory_stats d3d12 "${memory_stats_shader_dir}/dxil")
+    set_tests_properties(test_memory_stats_d3d11 test_memory_stats_d3d12 PROPERTIES TIMEOUT 60)
+endif()
+
